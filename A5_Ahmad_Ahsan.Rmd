@@ -1,0 +1,346 @@
+---
+title: "Blackbox methods, KNN"
+author: "Ahsan Ahmad"
+date: "March 24, 2024"
+output: 
+  html_document:
+    number_sections: yes
+    toc: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE, warning = FALSE)
+```
+
+# Libraries
+
+```{r library}
+library(tidyverse)
+library(psych)
+library(caret)
+library(rminer)
+library(rmarkdown)
+library(matrixStats)
+library(knitr)
+library(rpart)
+library(RWeka)
+library(kernlab)
+```
+
+# Package load, data import, inspection, and partitioning
+
+Before proceeding with the analysis, it's essential to set up the working directory and import the data from a CSV file named 'NA_sales_filtered.csv'. This code chunk also inspects the structure of the dataset and converts string data into factors for further analysis. Lastly, the code chunk does data partition to create a 70-30 split for train and test data sets.
+
+```{r Set up, data import and inspection}
+
+# Setting up working directory and importing data from a csv file
+
+cloud_wd <- getwd()
+setwd(cloud_wd)
+
+NA_sales <- read.csv(file = "NA_sales_filtered.csv", stringsAsFactors = FALSE)
+
+# Looking at the structure and summary of the data
+
+str(NA_sales)
+summary(NA_sales)
+
+# Removing names column from the dataset and storing it in a new dataset and changing all other character variables to factors
+
+Sales <- NA_sales[,-1]
+
+Sales <- Sales %>% 
+  mutate(Platform = factor(Platform),
+         Genre = factor(Genre),
+         Rating = factor(Rating))
+
+set.seed(100)  #Creating data partition by using 70% of data for the training set and 30% for the test set
+Sales_Train <- createDataPartition(Sales$NA_Sales, p=0.7, list=FALSE)
+
+train_set <- Sales[Sales_Train,]  #spliting the dataset using the indexes
+test_set <- Sales[-Sales_Train,]
+
+summary(train_set)
+summary(test_set)
+
+```
+
+
+# Build and evaluate neural network models for numeric prediction tasks
+
+In this code chunk, we explore MLP models using RWeka in R. We define the "MLP" shorthand for Multilayer Perceptron ANN. We create and evaluate a default MLP model on training and testing sets using various metrics. Additionally, we customize an MLP model with two hidden layers and adjust the learning rate, evaluating its performance similarly. This comparison offers insights into model complexity and hyperparameter tuning effects on predictive accuracy.
+
+```{r neural network models}
+
+# Designating a shortened name MLP for the MultilayerPerceptron ANN method in RWeka
+
+MLP <- make_Weka_classifier("weka/classifiers/functions/MultilayerPerceptron")
+
+# Creating a default model for ANN using MLP
+
+model_default <- MLP(NA_Sales ~ ., data = train_set)
+
+# Generating prediction for the default ANN model for both the train and test set
+
+default_model_train_predictions <- predict(model_default,train_set)
+default_model_test_predictions <- predict(model_default,test_set)
+
+# Generating multiple prediction evaluation metrics using rminer package
+
+metrics_list <- c("MAE","RMSE","MAPE","RMSPE","RAE", "RRSE", "R2")
+
+# performance of predictions on training data
+mmetric(train_set$NA_Sales,default_model_train_predictions,metrics_list)
+# performance of predictions on testing data 
+mmetric(test_set$NA_Sales,default_model_test_predictions,metrics_list)
+
+# Creating a model with two hidden layer and tweaking the learning rate for ANN using MLP
+
+model_h2 <- MLP(NA_Sales ~ .,data = train_set,control = Weka_control(L=0.05,M=0.2, N=500,H=2))
+
+# Generating prediction for the two hidden layer ANN model for both the train and test set
+
+h2_model_train_predictions <- predict(model_h2,train_set)
+h2_model_test_predictions <- predict(model_h2,test_set)
+
+# performance of predictions on training data
+mmetric(train_set$NA_Sales,h2_model_train_predictions,metrics_list)
+# performance of predictions on testing data 
+mmetric(test_set$NA_Sales,h2_model_test_predictions,metrics_list)
+
+```
+
+
+# Build and evaluate SVM (ksvm) models for numeric prediction tasks
+
+In this code chunk, we begin by creating and evaluating a default SVM model on the training and testing sets using predefined metrics. Subsequently, we create two custom SVM models: one with a different kernel function ("polydot") and another with a specified cost value (C = 5). We evaluate the performance of each custom model on both the training and testing sets, providing insights into the impact of kernel choice and cost parameter tuning on predictive accuracy.
+
+```{r SVM (ksvm) models}
+
+# Creating a default SVM model
+
+default_SVM <- ksvm(NA_Sales ~ ., data = train_set)
+
+# Generating prediction for the default SVM model for both the train and test set
+
+default_SVM_model_train_predictions <- predict(default_SVM,train_set)
+default_SVM_model_test_predictions <- predict(default_SVM,test_set)
+
+# performance of predictions on training data
+mmetric(train_set$NA_Sales,default_SVM_model_train_predictions,metrics_list)
+# performance of predictions on testing data 
+mmetric(test_set$NA_Sales,default_SVM_model_test_predictions,metrics_list)
+
+# Creating a ksvm model with a different kernel function, kernel = "polydot"
+
+custom_SVM <- ksvm(NA_Sales ~ ., data = train_set, kernel = "polydot")
+
+# Generating predictions for the custom SVM model for both the train and test set
+custom_SVM_model_train_predictions <- predict(custom_SVM, train_set)
+custom_SVM_model_test_predictions <- predict(custom_SVM, test_set)
+
+# Evaluating the model performance on the training set
+mmetric(train_set$NA_Sales, custom_SVM_model_train_predictions, metrics_list)
+
+# Evaluating the model performance on the testing set
+mmetric(test_set$NA_Sales, custom_SVM_model_test_predictions, metrics_list)
+
+# Setting the desired value of C (cost parameter)
+custom_C <- 5
+
+# Creating a ksvm model with a different cost value
+custom_C_SVM <- ksvm(NA_Sales ~ ., data = train_set, C = custom_C)
+
+# Generating predictions for the custom C SVM model for both the train and test set
+custom_C_SVM_model_train_predictions <- predict(custom_C_SVM, train_set)
+custom_C_SVM_model_test_predictions <- predict(custom_C_SVM, test_set)
+
+# Evaluating the model performance on the training set
+mmetric(train_set$NA_Sales, custom_C_SVM_model_train_predictions, metrics_list)
+
+# Evaluating the model performance on the testing set
+mmetric(test_set$NA_Sales, custom_C_SVM_model_test_predictions, metrics_list)
+
+```
+
+
+# Build and evaluate knn (IBk) models for numeric prediction tasks
+
+In this code chunk, we create and evaluate an IBk model with default parameters on both training and testing sets. Then, we customize IBk models with varied parameters: setting K = 5, enabling instance-based weighting (I = TRUE), and utilizing cross-validation for K selection (X = TRUE). Each model's performance is evaluated on training and testing data, revealing insights into parameter effects on predictive accuracy.
+
+```{r knn (IBk) models}
+
+# Creating a IBk model with default parameters
+
+IBk_default <- IBk(NA_Sales ~ ., data = train_set)
+
+# Generating prediction for the default IBk model for both the train and test set
+
+default_IBk_model_train_predictions <- predict(IBk_default,train_set)
+default_IBk_model_test_predictions <- predict(IBk_default,test_set)
+
+# performance of predictions on training data
+mmetric(train_set$NA_Sales,default_IBk_model_train_predictions,metrics_list)
+# performance of predictions on testing data 
+mmetric(test_set$NA_Sales,default_IBk_model_test_predictions,metrics_list)
+
+# Creating a IBk model with K =5 and other parameters as default
+
+IBK_model_5 <- IBk(NA_Sales ~ ., data = train_set, control = Weka_control(K=5))
+
+# Generating prediction for the IBk model with K = 5 for both the train and test set
+
+IBk_model_5_train_predictions <- predict(IBK_model_5,train_set)
+IBk_model_5_test_predictions <- predict(IBK_model_5,test_set)
+
+# performance of predictions on training data
+mmetric(train_set$NA_Sales,IBk_model_5_train_predictions,metrics_list)
+# performance of predictions on testing data 
+mmetric(test_set$NA_Sales,IBk_model_5_test_predictions,metrics_list)
+
+# Creating a IBk model with I = TRUE and other parameters as the previous model
+
+IBK_model_I <- IBk(NA_Sales ~ ., data = train_set, control = Weka_control(K=5,I=TRUE))
+
+# Generating prediction for the IBk model with I = TRUE for both the train and test set
+
+IBk_model_I_train_predictions <- predict(IBK_model_I,train_set)
+IBk_model_I_test_predictions <- predict(IBK_model_I,test_set)
+
+# performance of predictions on training data
+mmetric(train_set$NA_Sales,IBk_model_I_train_predictions,metrics_list)
+# performance of predictions on testing data 
+mmetric(test_set$NA_Sales,IBk_model_I_test_predictions,metrics_list)
+
+# Creating a IBk model with X = TRUE and other parameters as the previous model
+
+IBK_model_X <- IBk(NA_Sales ~ ., data = train_set, control = Weka_control(K=40,I=TRUE,X=TRUE))
+
+IBK_model_X
+
+# The Classifier has chosen K = 8 as best value to minimize MAE
+
+# Generating prediction for the IBk model with X = TRUE for both the train and test set
+
+IBk_model_X_train_predictions <- predict(IBK_model_X,train_set)
+IBk_model_X_test_predictions <- predict(IBK_model_X,test_set)
+
+# performance of predictions on training data
+mmetric(train_set$NA_Sales,IBk_model_X_train_predictions,metrics_list)
+# performance of predictions on testing data 
+mmetric(test_set$NA_Sales,IBk_model_X_test_predictions,metrics_list)
+
+```
+
+
+# Cross-validation function for numeric prediction models
+
+This R code defines a cross-validation function (cv_function) to evaluate model performance using 5-fold cross-validation. It takes a dataframe (df), target variable index (target), number of folds (nFolds), and evaluation metrics list (metrics_list). Then, it iterates through different prediction methods (MLP, ksvm, and IBk), prints model summaries, computes evaluation metrics, and presents results in a table format.
+
+```{r Define a user-defined, named function for CV of MLP, ksvm and IBk with control parameters}
+
+cv_function <- function(df, target, nFolds, seedVal, classification, metrics_list)
+{
+  set.seed(seedVal)
+  folds = createFolds(df[,target],nFolds) 
+  
+  cv_results <- lapply(folds, function(x)
+{
+  test_target <- df[x,target]
+  test_input <- df[x,-target]
+  
+  train_target <- df[-x,target]
+  train_input <- df[-x,-target]
+   
+  pred_model <- prediction_method(train_target~.,train_input)
+  
+  pred <- predict(pred_model, test_input)
+# return saves performance results in cv_results[[i]]
+  return(mmetric(test_target,pred,metrics_list))
+})
+  
+  cv_results_m <- as.matrix(as.data.frame(cv_results))
+  
+  cv_mean<- as.matrix(rowMeans(cv_results_m))
+  
+  colnames(cv_mean) <- "Mean"
+  
+  cv_sd <- as.matrix(rowSds(cv_results_m))
+  
+  colnames(cv_sd) <- "Sd"
+  
+  cv_all <- cbind(cv_results_m, cv_mean, cv_sd)
+  
+  kable(cv_all,digits=2)
+}
+
+```
+
+# 3 fold cross-validation of MLP, ksvm and IBk models
+
+This code chunk performs 3-fold cross-validation on different default machine learning models: MLP (Multilayer Perceptron), ksvm (Support Vector Machine), and IBk (Instance-Based Learning). It calls cv_function three times for each prediction method on the Sales dataset.The results are displayed in tabular format for each model, providing insights into their predictive performance through cross-validation.
+
+```{r 3-fold cross validation on different default models}
+
+# Using the CV_Function to evaluate 5-fold lm,rpart and C5P model evaluation performance.
+
+# 3-fold, MLP
+
+df <- Sales
+target <- 8
+nFolds <- 3
+seedVal <- 500
+assign("prediction_method",MLP)
+metrics_list <- c("MAE","RMSE","MAPE","RMSPE","RAE", "RRSE", "R2")
+
+cv_function(df, target, nFolds, seedVal, classification, metrics_list)
+
+# 3-fold, ksvm
+
+df <- Sales
+target <- 8
+nFolds <- 3
+seedVal <- 500
+assign("prediction_method", ksvm)
+metrics_list <- c("MAE","RMSE","MAPE","RMSPE","RAE", "RRSE", "R2")
+
+cv_function(df, target, nFolds, seedVal, classification, metrics_list)
+
+# 3-fold, IBk
+
+df <- Sales
+target <- 8
+nFolds <- 3
+seedVal <- 500
+assign("prediction_method",IBk)
+metrics_list <- c("MAE","RMSE","MAPE","RMSPE","RAE", "RRSE", "R2")
+
+cv_function(df, target, nFolds, seedVal, classification, metrics_list)
+
+```
+
+
+# Reflections
+
+1. Using KSVM model performance results. Describe the parameter changes and their impact (e.g. significantly increase or decrease) on performance metrics of numeric prediction models.  Discuss the reasons for these performance changes? 
+
+The default KSVM model had a MAE of around 0.19 for training set and 0.20 for testing set which increases to 0.24 and 0.23 respectively when we tweaked the hyperparameters by setting kernel as "polydot" or using a Polynomial kernel, this increase in MAE might be due to the fact that polynomial is not a good fit for this dataset. Furthermore, by setting a specified cost value (C = 5) we saw a decrease of MAE from the default model in the training set from 0.19 to 0.17 while the testing MAE remained same at 0.20. Although very less significant but we can say that assigning a cost value to the KVSM model increases accuracy of the model and it fits a little better on the training set although too much C value may cause overfitting.
+
+2. Using MLP model performance results. Describe the parameter changes and their impact (e.g. significantly increase or decrease) on performance metrics of numeric prediction models.  Also describe the parameter changes and their impact (e.g. significantly increase or decrease) on running speed of building and evaluating numeric prediction models. Discuss the reasons for these performance changes?
+
+The default MLP model had a MAE of around 0.36 for training set and 0.37 for testing set which decreases to 0.22 and 0.21 respectively when we decrease the learning rate from the default value of 0.3 to 0.05 as although it took more time to run but having a lower learning rate helps the model to converge hence reducing the Mean Absolute error as seen in the second model. Moreover, we also used a two-hidden-layer MLP model for this second model which further helped improving the accuracy by providing another layer of nodes.
+
+3. What have you learned from building each of these models and the modeling impact of your adjustments to the hyperparameters or dataset? If you were explaining the results of these models to a supervisor what would you say about them? Attempt to do more than just state facts here, interpret the results. Coding is great, interpretation of output is even more important. Discuss each model.
+
+MLP Model:
+The MLP model's performance can be considered as Moderate with an MAE of 0.36 and RMSE of around 0.52.    However, other metrics like MAPE and RAE indicates signs of significant variability, moreover the relatively high standard deviation of the model and a R2 of 0.23 makes it not the best model for predictions.
+
+KSVM Model:
+The KSVM model shows much better performance than other models, with lower MAE and RMSE, averaging around 0.21 and 0.40, respectively. Moreover, it has a lower standard deviation across all folds and a better R2 value of 0.40 indicating that it is a better fit than other models.
+
+IBk Model:
+The IBk model has a performance in between the MLP and KSVM models, with an average MAE of around 0.31 and RMSE of around 0.55. However, this model shows high variability as seen by the high standard deviations across matrices and a R2 value of just 0.13 which shows that it is not a great fit.
+
+The KSVM model appears to be the most promising option among the three, exhibiting lower error metrics and higher consistency in predictions. It provides a good balance between accuracy and generalization. While MLP and IBk models offer alternatives, they show higher variability and bias in predictions, suggesting potential limitations in capturing underlying patterns in the data. Further analysis is required for these models by tweaking their respective hyperparamters to improve their predictive power.
