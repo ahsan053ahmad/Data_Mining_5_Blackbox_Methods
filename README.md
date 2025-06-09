@@ -4,7 +4,7 @@ This repository contains an R Markdown assignment report that evaluates three bl
 
 ---
 
-### 🧩 Business Problem
+### Business Problem
 
 In real-world classification problems, relationships between predictors and outcomes are often complex and non-linear. Traditional models like linear regression or decision trees may fail to capture this complexity. **Black-box methods** offer powerful alternatives that can model non-linear boundaries, though at the cost of interpretability.
 
@@ -12,7 +12,7 @@ This assignment explores how KNN, SVM, and NN perform on a structured dataset an
 
 ---
 
-### 🎯 Project Objective
+### Project Objective
 
 The key objectives of this assignment were:
 
@@ -24,7 +24,7 @@ The key objectives of this assignment were:
 
 ---
 
-### 🛠️ Solution Approach
+### Solution Approach
 
 The assignment was structured around a consistent machine learning pipeline:
 
@@ -43,7 +43,7 @@ The assignment was structured around a consistent machine learning pipeline:
 
 ---
 
-### 💡 Business Value
+### Business Value
 
 While this assignment was academic, the methodology has strong industry relevance:
 
@@ -54,7 +54,7 @@ While this assignment was academic, the methodology has strong industry relevanc
 
 ---
 
-### 🚧 Challenges Encountered
+### Challenges Encountered
 
 - **Model Tuning**: Hyperparameter tuning (e.g., cost for SVM, hidden nodes in NN) required experimentation and cross-validation
 - **Overfitting**: Complex models like neural networks were prone to overfitting without regularization
